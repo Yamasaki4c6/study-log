@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { QuestionImages } from '../components/QuestionImages'
 import { db } from '../lib/db'
 import { activeMaterials, addImage, createMaterial, deleteQuestion, saveQuestion } from '../lib/store'
+import { requestSync } from '../lib/sync'
 import type { Choice, QuestionImage, QuestionType } from '../lib/types'
 
 const NEW = '__new__'
@@ -119,6 +120,7 @@ export function QuestionEdit() {
       source: form.source.trim() || undefined,
     })
     setSaved(true)
+    requestSync()
     if (isNew) navigate(`/questions/${q.id}`, { replace: true })
   }
 
@@ -127,6 +129,7 @@ export function QuestionEdit() {
     // 確認ダイアログの代わりに2度押しで削除する
     if (!confirmDelete) return setConfirmDelete(true)
     await deleteQuestion(id)
+    requestSync()
     navigate('/questions')
   }
 

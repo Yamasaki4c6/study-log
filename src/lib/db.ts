@@ -10,12 +10,27 @@ interface SettingRow {
   value: Settings
 }
 
+/** 同期の設定と状態（トークンはこの端末の中だけに保存し、どこにも送らない） */
+export interface SyncRow {
+  key: 'sync'
+  token?: string
+  owner: string
+  repo: string
+  deviceId: string
+  knownShas: Record<string, string> // リポジトリ内のファイルごとの指紋（変わったものだけ取りに行く）
+  pushedHashes: Record<string, string> // この端末が最後に送った内容の指紋（変わっていなければ送らない）
+  lastSyncAt?: string
+  status: 'off' | 'syncing' | 'ok' | 'offline' | 'error'
+  message?: string
+}
+
 export const db = new Dexie('study-log') as Dexie & {
   materials: EntityTable<Material, 'id'>
   questions: EntityTable<Question, 'id'>
   images: EntityTable<QuestionImage, 'id'>
   attempts: EntityTable<Attempt, 'id'>
   settings: EntityTable<SettingRow, 'key'>
+  sync: EntityTable<SyncRow, 'key'>
 }
 
 // 先頭が主キー、残りは検索に使う列（インデックス）
@@ -25,6 +40,9 @@ db.version(1).stores({
   images: 'id, questionId',
   attempts: 'id, questionId, answeredAt',
   settings: 'key',
+})
+db.version(2).stores({
+  sync: 'key',
 })
 
 export function newId(): string {

@@ -2,9 +2,11 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { MathText } from '../components/MathText'
 import { parseImport, type ImportData } from '../lib/importFormat'
+import { decodeImportData } from '../lib/importLink'
+import { requestSync } from '../lib/sync'
 import { activeMaterials, importQuestions, previewImport, type ImportPreviewItem } from '../lib/store'
 import promptTemplate from '../prompts/question-generation.md?raw'
 
@@ -25,6 +27,17 @@ export function Import() {
   useEffect(() => {
     if (shared) setText(shared)
   }, [shared])
+
+  // 「タップで取り込めるリンク」（#/import?d=...）で開かれたら、中身を貼り付け欄に入れる
+  const [params, setParams] = useSearchParams()
+  const linkData = params.get('d')
+  useEffect(() => {
+    if (!linkData) return
+    decodeImportData(linkData)
+      .then((t) => setText(t))
+      .catch(() => setText(''))
+      .finally(() => setParams({}, { replace: true }))
+  }, [linkData, setParams])
 
   const parsed = useMemo(() => (text.trim() ? parseImport(text) : null), [text])
   const data: ImportData | null = parsed?.ok ? parsed.data : null
@@ -62,6 +75,7 @@ export function Import() {
       materialId === NEW ? { newTitle: materialTitle, year: data.material?.year } : { materialId },
       skipDuplicates,
     )
+    requestSync(0)
     setResult(`${r.added}問を追加しました` + (r.updated ? `、${r.updated}問を上書きしました` : '') + (r.skipped ? `（${r.skipped}問は登録済みのためスキップ）` : ''))
     setText('')
   }

@@ -6,6 +6,7 @@ import type { Choice, QuestionType } from './types'
 export const FORMAT_ID = 'study-log/v1'
 
 export interface ImportQuestion {
+  id?: string // 固定ID。どの端末で取り込んでも同じ問題として扱うため（同期で使う）
   label: string
   body: string
   type: QuestionType
@@ -59,6 +60,7 @@ export function parseImport(text: string): ParseResult {
   }
 
   const questions: ImportQuestion[] = []
+  const seenIds = new Set<string>()
   root.questions.forEach((item, i) => {
     const where = `${i + 1}問目`
     if (!isObj(item)) {
@@ -90,10 +92,16 @@ export function parseImport(text: string): ParseResult {
       }
     }
 
+    const id = item.id === undefined ? undefined : str(item.id)?.trim()
+    if (item.id !== undefined && !id) errors.push(`${where}：id は空でない文字列にしてください`)
+    if (id && seenIds.has(id)) errors.push(`${where}：id「${id}」が重複しています`)
+    if (id) seenIds.add(id)
+
     const tolerance = item.tolerance === undefined ? undefined : Number(item.tolerance)
     if (tolerance !== undefined && !(tolerance >= 0)) errors.push(`${where}：tolerance は0以上の数にしてください`)
 
     questions.push({
+      id: id || undefined,
       label: str(item.label)?.trim() || `問${i + 1}`,
       body,
       type,
