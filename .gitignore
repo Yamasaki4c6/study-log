@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dev-dist/
+*.local
+.DS_Store
+# 教材・記録のデータはリポジトリに入れない（著作権とプライバシーのため）
+data/
+backups/
+*.studylog.json
+*.tsbuildinfo
