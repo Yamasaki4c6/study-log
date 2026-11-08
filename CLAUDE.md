@@ -26,6 +26,7 @@ Duolingo / 過去問道場を参考にした、自分専用の学習記録 PWA�
 - `npm run dev` 開発サーバー（http://localhost:5173/study-log/）
 - `npm test` テスト（Vitest）
 - `npm run build` 型チェック＋ビルド（dist/）
+- `node scripts/make-import-link.mjs 問題.json` タップで取り込めるリンクを作る
 
 ## 構成
 - src/lib/ … ロジック（day / streak / queue / judge / importFormat / backup / store / db）。テストは *.test.ts
