@@ -33,6 +33,9 @@ export interface Question {
   createdAt: string
   updatedAt: string
   deletedAt?: string
+  // この端末（または他の端末）で手動登録・編集・削除した時刻。
+  // これがある問題は同期の edits.json に入り、問題ファイルの再取り込みで上書きされない
+  editedAt?: string
 }
 
 export interface QuestionImage {
@@ -53,6 +56,7 @@ export interface Attempt {
   response?: string // 自分の回答
   correct: boolean
   judgedBy: JudgedBy
+  deviceId?: string // どの端末で回答したか（同期で使う。同期を始める前の記録にはない）
 }
 
 export interface Settings {

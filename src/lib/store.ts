@@ -4,10 +4,24 @@ import { db, newId, nowIso } from './db'
 import { fingerprint, type ImportData } from './importFormat'
 import type { Attempt, JudgedBy, Material, Question, QuestionImage } from './types'
 
+/**
+ * 教材のIDは教材名から決める（同じ名前ならどの端末でも同じID）。
+ * こうしておくと、同期したときに同じ教材が2つに分かれない。
+ */
+export async function materialIdFor(title: string): Promise<string> {
+  const bytes = new TextEncoder().encode(title.trim().normalize('NFKC'))
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
+  return 'm-' + [...hash.slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** 同じ名前の教材があればそれを、なければ新しく作って返す */
 export async function createMaterial(title: string, year?: number): Promise<Material> {
+  const t = title.trim()
+  const existing = (await db.materials.where('title').equals(t).toArray()).find((m) => !m.deletedAt)
+  if (existing) return existing
   const now = nowIso()
-  const m: Material = { id: newId(), title: title.trim(), year, createdAt: now, updatedAt: now }
-  await db.materials.add(m)
+  const m: Material = { id: await materialIdFor(t), title: t, year, createdAt: now, updatedAt: now }
+  await db.materials.put(m)
   return m
 }
 
@@ -36,11 +50,16 @@ export async function previewImport(data: ImportData, material: Material | { tit
   return items
 }
 
-/** 問題を取り込む。重複している問題は、skipDuplicates が true なら飛ばし、false なら上書きする */
+/**
+ * 問題を取り込む。重複している問題は、skipDuplicates が true なら飛ばし、false なら上書きする。
+ * fromSync が false（画面から貼り付け・リンクで取り込んだ）なら「この端末で追加した問題」として印を付け、
+ * 同期で他の端末にも届くようにする。
+ */
 export async function importQuestions(
   data: ImportData,
   target: { materialId: string } | { newTitle: string; year?: number },
   skipDuplicates: boolean,
+  fromSync = false,
 ): Promise<{ added: number; updated: number; skipped: number }> {
   const material =
     'materialId' in target ? (await db.materials.get(target.materialId))! : await createMaterial(target.newTitle, target.year)
@@ -53,21 +72,27 @@ export async function importQuestions(
     let updated = 0
     let skipped = 0
     for (const [i, q] of data.questions.entries()) {
-      const dup = (await db.questions.where('fingerprint').equals(fps[i]).toArray()).find((x) => !x.deletedAt)
       const now = nowIso()
-      if (dup && skipDuplicates) {
+      // 固定IDのある問題（同期用の問題ファイル）は ID で、ない問題は指紋で、登録済みか調べる
+      const dup = q.id
+        ? await db.questions.get(q.id)
+        : (await db.questions.where('fingerprint').equals(fps[i]).toArray()).find((x) => !x.deletedAt)
+      const editedAt = fromSync ? undefined : now
+      if (dup && (skipDuplicates || (fromSync && dup.editedAt))) {
+        // 手で編集・削除した問題は、取り込み直しで上書きしない
         skipped++
       } else if (dup) {
-        await db.questions.update(dup.id, { ...q, updatedAt: now })
+        await db.questions.update(dup.id, { ...q, id: dup.id, fingerprint: fps[i], updatedAt: now, ...(editedAt && { editedAt }) })
         updated++
       } else {
         await db.questions.add({
           ...q,
-          id: newId(),
+          id: q.id ?? newId(),
           materialId: material.id,
           fingerprint: fps[i],
           createdAt: now,
           updatedAt: now,
+          editedAt,
         })
         added++
       }
@@ -85,11 +110,11 @@ export async function saveQuestion(
   const now = nowIso()
   if (q.id) {
     const existing = (await db.questions.get(q.id))!
-    const next: Question = { ...existing, ...q, id: q.id, fingerprint: fp, updatedAt: now }
+    const next: Question = { ...existing, ...q, id: q.id, fingerprint: fp, updatedAt: now, editedAt: now }
     await db.questions.put(next)
     return next
   }
-  const created: Question = { ...q, id: newId(), fingerprint: fp, createdAt: now, updatedAt: now }
+  const created: Question = { ...q, id: newId(), fingerprint: fp, createdAt: now, updatedAt: now, editedAt: now }
   await db.questions.add(created)
   return created
 }
@@ -97,7 +122,7 @@ export async function saveQuestion(
 /** 論理削除。回答ログは残るので、ストリークや記録は変わらない */
 export async function deleteQuestion(id: string): Promise<void> {
   const now = nowIso()
-  await db.questions.update(id, { deletedAt: now, updatedAt: now })
+  await db.questions.update(id, { deletedAt: now, updatedAt: now, editedAt: now })
 }
 
 export async function recordAttempt(
@@ -106,7 +131,8 @@ export async function recordAttempt(
   judgedBy: JudgedBy,
   response?: string,
 ): Promise<Attempt> {
-  const a: Attempt = { id: newId(), questionId, answeredAt: nowIso(), correct, judgedBy, response }
+  const deviceId = (await db.sync.get('sync'))?.deviceId
+  const a: Attempt = { id: newId(), questionId, answeredAt: nowIso(), correct, judgedBy, response, deviceId }
   await db.attempts.add(a)
   return a
 }

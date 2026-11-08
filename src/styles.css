@@ -510,3 +510,22 @@ button:disabled {
   max-height: 240px;
   overflow: auto;
 }
+
+/* 同期の状態 */
+.sync-line {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.sync-line.error,
+.sync-status.error {
+  color: var(--red);
+}
+.sync-status {
+  margin: 0;
+  font-weight: bold;
+}
+.sync-status.ok {
+  color: var(--green-dark);
+}

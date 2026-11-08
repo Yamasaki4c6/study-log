@@ -6,6 +6,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { MathText } from '../components/MathText'
 import { parseImport, type ImportData } from '../lib/importFormat'
 import { decodeImportData } from '../lib/importLink'
+import { requestSync } from '../lib/sync'
 import { activeMaterials, importQuestions, previewImport, type ImportPreviewItem } from '../lib/store'
 import promptTemplate from '../prompts/question-generation.md?raw'
 
@@ -74,6 +75,7 @@ export function Import() {
       materialId === NEW ? { newTitle: materialTitle, year: data.material?.year } : { materialId },
       skipDuplicates,
     )
+    requestSync(0)
     setResult(`${r.added}問を追加しました` + (r.updated ? `、${r.updated}問を上書きしました` : '') + (r.skipped ? `（${r.skipped}問は登録済みのためスキップ）` : ''))
     setText('')
   }

@@ -6,6 +6,7 @@ import { attemptsToCsv, downloadText, exportBackup, importBackup } from '../lib/
 import { db, saveSettings } from '../lib/db'
 import { learningDay } from '../lib/day'
 import { useSettings } from '../lib/hooks'
+import { peekSyncRow, runSync, saveSyncConfig } from '../lib/sync'
 
 export function Settings() {
   const settings = useSettings()
@@ -64,8 +65,10 @@ export function Settings() {
         <p className="muted small">変更すると、過去の記録もこの時刻で数え直します。</p>
       </section>
 
+      <SyncSettings />
+
       <section className="card">
-        <h2>バックアップ・端末間の同期</h2>
+        <h2>バックアップ</h2>
         <p className="muted small">
           データはこのブラウザの中だけに保存されています（問題 {counts?.questions ?? 0}問、回答記録 {counts?.attempts ?? 0}件）。
           {persisted ? '消えにくい保存（永続ストレージ）が有効です。' : '永続ストレージが有効になっていません。こまめにバックアップしてください。'}
@@ -76,7 +79,7 @@ export function Settings() {
           <input type="file" accept=".json,application/json" onChange={(e) => restore(e.target.files?.[0])} />
         </label>
         <p className="muted small">
-          読み込みは上書きではなく合体です。スマホで書き出したファイルを PC で読み込めば、両方の記録が1つになります。
+          読み込みは上書きではなく合体です。GitHub 同期を使っていれば、ふだんは不要です（手で添付した画像は同期されないので、その保存用）。
         </p>
       </section>
 
@@ -88,5 +91,85 @@ export function Settings() {
 
       {message && <p className="success">{message}</p>}
     </div>
+  )
+}
+
+const STATUS_LABEL = {
+  off: '未設定',
+  syncing: '同期中…',
+  ok: '同期済み',
+  offline: 'オフライン（つながったら自動で同期します）',
+  error: 'エラー',
+} as const
+
+/** GitHub 同期の設定欄。トークンはこの端末の中だけに保存する */
+function SyncSettings() {
+  const row = useLiveQuery(peekSyncRow, [])
+  const [token, setToken] = useState('')
+  const [owner, setOwner] = useState<string>()
+  const [repo, setRepo] = useState<string>()
+  const [busy, setBusy] = useState(false)
+  if (!row) return null
+
+  const save = async () => {
+    setBusy(true)
+    await saveSyncConfig(token || row.token || '', owner ?? row.owner, repo ?? row.repo)
+    setToken('')
+    await runSync()
+    setBusy(false)
+  }
+
+  const syncNow = async () => {
+    setBusy(true)
+    await runSync()
+    setBusy(false)
+  }
+
+  return (
+    <section className="card">
+      <h2>GitHub 同期</h2>
+      <p className="muted small">
+        非公開リポジトリから新しい問題を自動で取り込み、回答記録をスマホと PC でそろえます。
+      </p>
+      <p className={`sync-status ${row.status}`}>
+        状態：{STATUS_LABEL[row.status]}
+        {row.lastSyncAt && `（最後の同期 ${new Date(row.lastSyncAt).toLocaleString('ja-JP')}）`}
+      </p>
+      {row.message && <p className={row.status === 'error' ? 'errors' : 'muted small'}>{row.message}</p>}
+      <label>
+        トークン{row.token ? '（設定済み。変えるときだけ入力）' : ''}
+        <input
+          type="password"
+          autoComplete="off"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={row.token ? '••••••••' : 'github_pat_...'}
+        />
+      </label>
+      <div className="row">
+        <label>
+          持ち主
+          <input value={owner ?? row.owner} onChange={(e) => setOwner(e.target.value)} />
+        </label>
+        <label>
+          リポジトリ
+          <input value={repo ?? row.repo} onChange={(e) => setRepo(e.target.value)} />
+        </label>
+      </div>
+      <div className="row">
+        <button className="primary" disabled={busy || (!token && !row.token)} onClick={save}>
+          保存して同期
+        </button>
+        <button disabled={busy || !row.token} onClick={syncNow}>
+          今すぐ同期
+        </button>
+      </div>
+      {row.token && (
+        <button className="link-button" disabled={busy} onClick={() => saveSyncConfig('', row.owner, row.repo)}>
+          この端末からトークンを消す
+        </button>
+      )}
+      {row.deviceId && <p className="muted small">この端末の ID：{row.deviceId}</p>}
+    </section>
   )
 }

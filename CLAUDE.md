@@ -5,7 +5,8 @@ Duolingo / 過去問道場を参考にした、自分専用の学習記録 PWA�
 ## 前提（2026-11-08 決定）
 - **Claude API などの AI API は使わない**（費用ゼロ）。問題づくり・リマインドは既存の AI（Claude のチャット、Meta の Muse）に任せ、アプリは AI が出した JSON を取り込むだけ。
 - **GitHub Pages の静的サイト**。サーバーなし。データはブラウザ内（IndexedDB）にだけ保存する。
-- 端末間の同期は、バックアップの書き出し → 別端末で読み込み（合体）で行う。
+- 問題と回答記録は非公開リポジトリ `Yamasaki4c6/study-log-data` で同期する（docs/sync.md）。ユーザーが参考書の写真を送ったら、Claude が `questions/*.json`（固定 id つき）をそこへ追加する。アプリが自動で取り込む。
+- 予備の手段：タップで取り込めるリンク、バックアップの書き出し・読み込み（合体）。
 - リポジトリは Public。**教材・問題・回答記録をリポジトリにコミットしない**（著作権・プライバシー）。
 
 ## 用語
@@ -29,7 +30,7 @@ Duolingo / 過去問道場を参考にした、自分専用の学習記録 PWA�
 - `node scripts/make-import-link.mjs 問題.json` タップで取り込めるリンクを作る
 
 ## 構成
-- src/lib/ … ロジック（day / streak / queue / judge / importFormat / backup / store / db）。テストは *.test.ts
+- src/lib/ … ロジック（day / streak / queue / judge / importFormat / importLink / backup / store / db / sync / githubClient）。テストは *.test.ts
 - src/pages/ … 画面（Home / Quiz / Import / Questions / QuestionEdit / Settings）
 - src/components/ … MathText（KaTeX）/ Heatmap / QuestionImages
 - src/prompts/question-generation.md … AI に問題を作らせる指示文（アプリ内でコピーできる）

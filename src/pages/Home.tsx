@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Heatmap } from '../components/Heatmap'
 import { db } from '../lib/db'
 import { useStreak } from '../lib/hooks'
+import { peekSyncRow } from '../lib/sync'
 
 const STATUS_TEXT = {
   done_today: '今日の分は達成！',
@@ -13,6 +14,7 @@ const STATUS_TEXT = {
 
 export function Home() {
   const streak = useStreak()
+  const sync = useLiveQuery(peekSyncRow, [])
   const questionCount = useLiveQuery(async () => (await db.questions.toArray()).filter((q) => !q.deletedAt).length)
 
   if (!streak) return null
@@ -49,6 +51,18 @@ export function Home() {
       ) : (
         <Link to="/quiz" className="big-button">
           今日の1問
+        </Link>
+      )}
+
+      {sync && sync.status !== 'off' && (
+        <Link to="/settings" className={`sync-line ${sync.status}`}>
+          {sync.status === 'ok'
+            ? `GitHub と同期済み（${new Date(sync.lastSyncAt!).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}）`
+            : sync.status === 'syncing'
+              ? '同期中…'
+              : sync.status === 'offline'
+                ? 'オフライン：つながったら自動で同期します'
+                : `同期できませんでした：${sync.message ?? ''}`}
         </Link>
       )}
 

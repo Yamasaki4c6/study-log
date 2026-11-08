@@ -10,6 +10,7 @@ import { db } from '../lib/db'
 import { autoJudge } from '../lib/judge'
 import { buildQueue } from '../lib/queue'
 import { recordAttempt } from '../lib/store'
+import { requestSync } from '../lib/sync'
 import type { Question } from '../lib/types'
 
 type Phase = { step: 'answering' } | { step: 'revealed'; result: boolean | null; response: string }
@@ -103,12 +104,16 @@ function QuestionCard({ question: q, onNext }: { question: Question; onNext: () 
     const result = autoJudge(q, value)
     setPhase({ step: 'revealed', result, response: value })
     // 自動判定できたら、その場で回答ログに記録する
-    if (result !== null) await recordAttempt(q.id, result, 'auto', value)
+    if (result !== null) {
+      await recordAttempt(q.id, result, 'auto', value)
+      requestSync()
+    }
   }
 
   const selfJudge = async (correct: boolean) => {
     const resp = phase.step === 'revealed' ? phase.response : response
     await recordAttempt(q.id, correct, 'self', resp || undefined)
+    requestSync()
     onNext()
   }
 

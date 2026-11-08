@@ -31,6 +31,7 @@
 | questions[].tolerance | 任意 | numeric の許容誤差 |
 | questions[].explanation | 任意 | 最初の段落が要点、空行のあとが「詳しい解説」 |
 | questions[].label / tags / source | 任意 | 番号・タグ・出典 |
+| questions[].id | 任意 | 固定 ID。同期用の問題ファイルでは必須にする（どの端末でも同じ問題として記録するため）。ファイル内で重複不可 |
 
 - 前置きの文章や ```json のコードブロックが付いていても、JSON 部分だけを取り出す。
 - 問題の配列だけを貼っても受け付ける。
